@@ -27,15 +27,22 @@ const ENTRY_POINT_KEY: &str = "entry_point";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HNSWConfig {
-    pub m: usize,             // max num of bi-directional links per element
-    pub m_max_0: usize,       // max num of links for lower layers
-    pub ef_construct: usize,  // size of the dynamic candidate list for construction
-    pub m_l: f64,             // level generation factor
-    pub ef: usize,            // search param, num of cands to search
-    pub min_neighbors: usize, // for get_neighbors, always 512
+    /// max num of bi-directional links per element
+    pub m: usize,
+    /// max num of links for lower layers
+    pub m_max_0: usize,
+    /// size of the dynamic candidate list for construction
+    pub ef_construct: usize,
+    /// level generation factor
+    pub m_l: f64,
+    /// search param, num of cands to search
+    pub ef: usize,
 }
 
 impl HNSWConfig {
+    /// for get_neighbors
+    pub const MIN_NEIGHBORS: usize = 512;
+
     /// Constructor for the configs of the HNSW vector similarity search algorithm
     /// - m (5 <= m <= 48): max num of bi-directional links per element
     /// - m_max_0 (2 * m): max num of links for level 0 (level that stores all vecs)
@@ -54,7 +61,6 @@ impl HNSWConfig {
             ef_construct,
             m_l: 1.0 / (m as f64).ln(),
             ef,
-            min_neighbors: 512,
         }
     }
 }
@@ -162,7 +168,7 @@ impl VectorCore {
         F: Fn(&HVector, &RoTxn) -> bool,
     {
         let out_key = Self::out_edges_key(id, level, None);
-        let mut neighbors = Vec::with_capacity(self.config.m_max_0.min(self.config.min_neighbors));
+        let mut neighbors = Vec::with_capacity(self.config.m_max_0.min(HNSWConfig::MIN_NEIGHBORS));
 
         let iter = self
             .edges_db
