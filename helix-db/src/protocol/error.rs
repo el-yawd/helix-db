@@ -40,7 +40,21 @@ impl HelixError {
 impl IntoResponse for HelixError {
     fn into_response(self) -> axum::response::Response {
         let status = match &self {
-            HelixError::Graph(_) | HelixError::Vector(_) => 500,
+            HelixError::Graph(e) => {
+                // Check if this is a "not found" error
+                match e {
+                    GraphError::NodeNotFound | GraphError::EdgeNotFound | GraphError::LabelNotFound => 404,
+                    GraphError::New(msg) if msg.to_lowercase().contains("not found") || msg.to_lowercase().contains("no value found") => 404,
+                    _ => 500,
+                }
+            }
+            HelixError::Vector(e) => {
+                // Check if this is a "not found" error
+                match e {
+                    VectorError::VectorNotFound(_) => 404,
+                    _ => 500,
+                }
+            }
             HelixError::NotFound { .. } => 404,
             HelixError::InvalidApiKey => 403,
         };
@@ -248,5 +262,81 @@ mod tests {
         let error = HelixError::InvalidApiKey;
         let debug_str = format!("{:?}", error);
         assert!(debug_str.contains("InvalidApiKey"));
+    }
+
+    // ============================================================================
+    // NotFound Error Handling Tests (404 vs 500)
+    // ============================================================================
+
+    #[test]
+    fn test_graph_error_node_not_found_returns_404() {
+        let graph_err = GraphError::NodeNotFound;
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_graph_error_edge_not_found_returns_404() {
+        let graph_err = GraphError::EdgeNotFound;
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_graph_error_label_not_found_returns_404() {
+        let graph_err = GraphError::LabelNotFound;
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_graph_error_no_value_found_returns_404() {
+        let graph_err = GraphError::New("No value found".to_string());
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_graph_error_user_not_found_returns_404() {
+        let graph_err = GraphError::New("User not found".to_string());
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_graph_error_item_not_found_returns_404() {
+        let graph_err = GraphError::New("Item Not Found".to_string());
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_graph_error_other_errors_return_500() {
+        let graph_err = GraphError::New("Some other error".to_string());
+        let helix_err = HelixError::from(graph_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 500);
+    }
+
+    #[test]
+    fn test_vector_error_not_found_returns_404() {
+        let vector_err = VectorError::VectorNotFound("vec123".to_string());
+        let helix_err = HelixError::from(vector_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 404);
+    }
+
+    #[test]
+    fn test_vector_error_other_errors_return_500() {
+        let vector_err = VectorError::InvalidVectorLength;
+        let helix_err = HelixError::from(vector_err);
+        let response = helix_err.into_response();
+        assert_eq!(response.status(), 500);
     }
 }
